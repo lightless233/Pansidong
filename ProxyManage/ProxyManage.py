@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from ProxySpider.utils.ThreadPool import ThreadPool
-
 __author__ = "lightless"
 __email__ = "root@lightless.me"
 

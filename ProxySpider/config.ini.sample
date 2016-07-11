@@ -1,0 +1,19 @@
+# ProxySpider config file.
+# This is only an example file.
+
+# ProxySpider configuare
+[ProxySpider]
+# If debug should be enable. The value of this option is "On" or "Off"
+# On - enable debug log
+# Off - disable debug log.
+debug = On
+
+# which database should be use.
+# Now only mysql was supported.
+database = MySQL
+
+[MySQL]
+username = root
+password = root
+database = proxyspider
+host = localhost

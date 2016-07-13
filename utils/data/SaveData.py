@@ -28,12 +28,12 @@ class SaveData(object):
             cf = ConfigParser.ConfigParser()
             cf.read("config.ini")
             db_name = cf.get("ProxySpider", "database")
-            self.username = cf.get(db_name, "username")
-            self.password = cf.get(db_name, "password")
-            self.host = cf.get(db_name, "host")
-            self.database = cf.get(db_name, "database")
-            self.engine = create_engine("mysql://" + self.username + ":" + self.password + "@" +
-                                        self.host + "/" + self.database + "?charset=utf8")
+            username = cf.get(db_name, "username")
+            password = cf.get(db_name, "password")
+            host = cf.get(db_name, "host")
+            database = cf.get(db_name, "database")
+            self.engine = create_engine("mysql://" + username + ":" + password + "@" +
+                                        host + "/" + database + "?charset=utf8")
             self.db_session = sessionmaker(bind=self.engine)
             self.session = self.db_session()
         if use_file:
@@ -61,6 +61,20 @@ class SaveData(object):
     def __write_database(self, res):
         res = res[1]
         for r in res:
+            # 先检测数据库中是否存在该IP
+            # 如果IP和端口均相同
+            # 则认为是重复的数据，不添加到数据库中
+
+            proxy = self.session.query(Proxy).filter_by(ip=r.get("ip"), port=r.get("port")).first()
+            if proxy:
+                proxy.updated_time = datetime.datetime.now()
+                try:
+                    self.session.add(proxy)
+                    self.session.commit()
+                except Exception, e:
+                    logger.debug("Update database error. " + e.message)
+                continue
+
             new_proxy = Proxy(ip=r.get("ip", "None"), port=r.get("port", "None"), proxy_type=r.get("type", "None"),
                               location=r.get("location", "None"), protocol=r.get("protocol", "None"),
                               times=r.get("time", "None"), created_time=datetime.datetime.now(),
@@ -69,7 +83,7 @@ class SaveData(object):
                 self.session.add(new_proxy)
                 self.session.commit()
             except Exception, e:
-                logger.debug("save database error. " + e.message)
+                logger.debug("Save database error. " + e.message)
 
     def __write_file(self, res):
         self.ff.writelines(res[0].get('url') + "\n")

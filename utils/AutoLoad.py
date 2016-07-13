@@ -22,7 +22,7 @@ class AutoLoad:
 
     def load_spider(self, filename):
         spider_name = os.path.splitext(filename)[0]
-        spider = __import__("spiders." + spider_name, fromlist=[spider_name])
+        spider = __import__("ProxySpider.spiders." + spider_name, fromlist=[spider_name])
         spider_class = spider.get_spider_class()
         o = spider_class()
         o.set_result_queue(self.results)
@@ -31,7 +31,7 @@ class AutoLoad:
 
     def load(self, *cls):
         if not cls:
-            for filename in os.listdir("spiders"):
+            for filename in os.listdir("../ProxySpider/spiders"):
                 if self.__check_filename(filename):
                     self.load_spider(filename)
         else:

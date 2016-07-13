@@ -14,6 +14,6 @@ database = MySQL
 
 [MySQL]
 username = root
-password = qjt950101*
+password = root
 database = proxyspider
 host = localhost

@@ -13,6 +13,8 @@ __email__ = "root@lightless.me"
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
+__all__ = ['ProxySpider']
+
 
 class ProxySpider(object):
     def __init__(self, output_file=True, output_db=True, output_filename="proxy-ip-list.csv"):

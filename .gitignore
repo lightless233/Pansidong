@@ -89,4 +89,6 @@ ENV/
 .ropeproject
 
 .idea
+proxy-ip-list.csv
+config.ini
 

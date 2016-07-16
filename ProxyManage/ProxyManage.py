@@ -41,15 +41,15 @@ class ProxyManage(object):
             proxy_ip = proxy.ip
             proxy_port = proxy.port
             logger.info("Testing %s:%s" % (proxy_ip, proxy_port))
-            r = self.__check_proxy(proxy_ip, proxy_port)
-            logger.debug("Time: " + str(r.get("time")) + " Success: " + str(r.get("success")))
+            s, t = self.__check_proxy(proxy_ip, proxy_port)
+            logger.debug("Time: " + str(t) + " Success: " + str(s))
 
     def __check_proxy(self, proxy_ip, proxy_port):
         retry = 3
         time_summary = 0.0
         success_count = 0
         while retry:
-            logger.debug("Retrying left: %d" % retry)
+            # logger.debug("Retrying left: %d" % retry)
             proxies = {
                 'http': proxy_ip + ":" + proxy_port
             }
@@ -60,14 +60,11 @@ class ProxyManage(object):
                 time_summary += elapsed_time
                 success_count += 1
             except requests.RequestException, e:
-                logger.debug(e.message)
+                # logger.debug(e.message)
                 continue
             finally:
                 retry -= 1
-        ret_val = dict()
-        ret_val['success'] = success_count
-        ret_val['time'] = 0 if success_count == 0 else "%.2f" % (time_summary/success_count)
-        return ret_val
+        return success_count, 0 if success_count == 0 else "%.2f" % (time_summary/success_count)
 
 
 

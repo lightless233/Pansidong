@@ -24,6 +24,7 @@ class Proxy(Base):
     location = Column(String(128), default=None, nullable=True)
     protocol = Column(String(64), default=None, nullable=True)
     times = Column(Float, default=None, nullable=True)
+    is_alive = Column(Integer, default=0, nullable=True)                 # 0-dead, 1-alive
     created_time = Column(DateTime, default=None, nullable=True)
     updated_time = Column(DateTime, default=None, nullable=True)
 

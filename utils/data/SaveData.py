@@ -77,7 +77,7 @@ class SaveData(object):
 
             new_proxy = Proxy(ip=r.get("ip", "None"), port=r.get("port", "None"), proxy_type=r.get("type", "None"),
                               location=r.get("location", "None"), protocol=r.get("protocol", "None"),
-                              times=r.get("time", "None"), created_time=datetime.datetime.now(),
+                              times=r.get("time", "None"), is_alive=0, created_time=datetime.datetime.now(),
                               updated_time=datetime.datetime.now())
             try:
                 self.session.add(new_proxy)

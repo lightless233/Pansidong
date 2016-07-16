@@ -2,9 +2,10 @@
 # coding: utf-8
 
 import ConfigParser
+import datetime
+import time
 
 import requests
-import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -36,6 +37,7 @@ class ProxyManage(object):
         Check if the proxy address is valid.
         :return: None
         """
+        # TODO: 改成多线程检测
         proxy_list = self.session.query(Proxy).filter(Proxy.id <= 10).all()
         for proxy in proxy_list:
             proxy_ip = proxy.ip
@@ -43,6 +45,16 @@ class ProxyManage(object):
             logger.info("Testing %s:%s" % (proxy_ip, proxy_port))
             s, t = self.__check_proxy(proxy_ip, proxy_port)
             logger.debug("Time: " + str(t) + " Success: " + str(s))
+
+            # 更新数据库
+            proxy_item = self.session.query(Proxy).filter(Proxy.id == proxy.id).first()
+            proxy_item.times = t
+            proxy_item.updated_time = datetime.datetime.now()
+            if s:
+                proxy_item.is_alive = 1
+
+            self.session.add(proxy_item)
+        self.session.commit()
 
     def __check_proxy(self, proxy_ip, proxy_port):
         retry = 3
@@ -66,6 +78,8 @@ class ProxyManage(object):
                 retry -= 1
         return success_count, 0 if success_count == 0 else "%.2f" % (time_summary/success_count)
 
+    def get_live_proxy_list(self):
+        return self.session.query(Proxy).filter(Proxy.is_alive == 1).all()
 
 
 

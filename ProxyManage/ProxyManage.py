@@ -32,13 +32,16 @@ class ProxyManage(object):
 
         self.headers = {'User-Agent': 'curl/7.49.1'}
 
-    def check(self):
+    def check(self, amount=None):
         """
         Check if the proxy address is valid.
         :return: None
         """
         # TODO: 改成多线程检测
-        proxy_list = self.session.query(Proxy).filter(Proxy.id <= 10).all()
+        if amount:
+            proxy_list = self.session.query(Proxy).filter(Proxy.id <= amount).all()
+        else:
+            proxy_list = self.session.query(Proxy).all()
         for proxy in proxy_list:
             proxy_ip = proxy.ip
             proxy_port = proxy.port
@@ -78,8 +81,11 @@ class ProxyManage(object):
                 retry -= 1
         return success_count, 0 if success_count == 0 else "%.2f" % (time_summary/success_count)
 
-    def get_live_proxy_list(self):
-        return self.session.query(Proxy).filter(Proxy.is_alive == 1).all()
+    def get_live_proxy_list(self, time_limit=None):
+        if time_limit:
+            return self.session.query(Proxy).filter(Proxy.is_alive == 1, Proxy.times <= time_limit).all()
+        else:
+            return self.session.query(Proxy).filter(Proxy.is_alive == 1).all()
 
 
 

@@ -26,6 +26,8 @@ class SpiderBase(object):
             self.phantomjs_path = phantomjs_path + "phantomjs.exe"
         elif "Linux" in platform.system() and "x86_64" in platform.machine():
             self.phantomjs_path = phantomjs_path + "phantomjs"
+        elif "Darwin" in platform.system():
+            self.phantomjs_path = phantomjs_path + "phantomjs-mac"
         else:
             logger.error("Unsupported operating system.")
             logger.error("Only Windows and Linux x86_64 was supported.")

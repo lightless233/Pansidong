@@ -2,6 +2,7 @@
 # coding: utf-8
 import os
 import Queue
+import platform
 
 __author__ = "lightless"
 __email__ = "root@lightless.me"
@@ -31,7 +32,12 @@ class AutoLoad:
 
     def load(self, *cls):
         if not cls:
-            for filename in os.listdir("../ProxySpider/spiders"):
+            if "Darwin" in platform.system():
+                spider_path = "ProxySpider/spiders"
+            else:
+                spider_path = "../ProxySpider/spiders"
+
+            for filename in os.listdir(spider_path):
                 if self.__check_filename(filename):
                     self.load_spider(filename)
         else:

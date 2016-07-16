@@ -1,6 +1,9 @@
 beautifulsoup4==4.4.1
 bs4==0.0.1
+html5lib==1.0b8
 MySQL-python==1.2.5
 requests==2.10.0
 selenium==2.53.6
+six==1.10.0
 SQLAlchemy==1.0.14
+webencodings==0.5

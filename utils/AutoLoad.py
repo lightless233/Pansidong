@@ -23,7 +23,7 @@ class AutoLoad:
 
     def load_spider(self, filename):
         spider_name = os.path.splitext(filename)[0]
-        spider = __import__("ProxySpider.spiders." + spider_name, fromlist=[spider_name])
+        spider = __import__("Cores.ProxySpider.spiders." + spider_name, fromlist=[spider_name])
         spider_class = spider.get_spider_class()
         o = spider_class()
         o.set_result_queue(self.results)

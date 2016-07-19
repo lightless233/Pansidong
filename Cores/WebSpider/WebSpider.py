@@ -3,7 +3,9 @@
 # file: WebSpider
 # time: 2016/7/17 10:59
 import urlparse
+import Queue
 
+import tldextract
 from selenium import webdriver
 from bs4 import BeautifulSoup
 
@@ -18,13 +20,26 @@ __all__ = ['WebSpider']
 
 
 class WebSpider(SpiderBase):
-    def __init__(self, target, deep=None):
+    def __init__(self, target, deep=1, limit_domain=list()):
+
+        # 设置phantomjs路径
         SpiderBase.__init__(self)
         SpiderBase.set_phantomjs_path(self)
+
+        # 设置参数
         self.target = target
         self.deep = deep
+        if limit_domain:
+            self.limit_domain = limit_domain
+        else:
+            self.limit_domain = ".".join(tldextract.extract(self.target))
+
+        # 去重用的set
         self.url_set = set()
+        # 存储爬虫结果的list
         self.links = list()
+        # 待爬取的队列
+        self.wait_queue = Queue.Queue()
 
     def start(self):
         logger.debug(self.target)
@@ -48,10 +63,17 @@ class WebSpider(SpiderBase):
                 continue
             all_cnt += 1
             r = self.format_url(a['href'])
+            # 如果该URL未出现过，并且在目标域中
             if r not in self.url_set:
-                cnt += 1
-                self.url_set.add(r)
-                self.links.append(a['href'])
+                for domain in self.limit_domain:
+                    ext = tldextract.extract(domain)
+                    # *的时候匹配所有二级域名，或者只匹配特定的域名
+                    if ((ext[0] == "*" or ext[0] == "") and tldextract.extract(a['href'])[1] == ext[1]) or \
+                       (".".join(tldextract.extract(a['href'])) == domain):
+                        cnt += 1
+                        self.url_set.add(r)
+                        self.links.append(a['href'])
+                        self.wait_queue.put(a['href'])
 
         logger.debug("".join(["All links: ", str(all_cnt)]))
         logger.debug("".join(["Get links: ", str(cnt)]))

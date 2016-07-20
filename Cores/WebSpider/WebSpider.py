@@ -4,11 +4,13 @@
 # time: 2016/7/17 10:59
 import urlparse
 import Queue
+import time
 
 import tldextract
 from selenium import webdriver
 from bs4 import BeautifulSoup
 
+from utils.ThreadPool import ThreadPool
 from utils.SpiderBase import SpiderBase
 from utils.data.LoggerHelp import logger
 
@@ -39,17 +41,45 @@ class WebSpider(SpiderBase):
         # 存储爬虫结果的list
         self.links = list()
         # 待爬取的队列
-        self.wait_queue = Queue.Queue()
+        self.task_queue = Queue.Queue()
+
+        # 将初始目标置于待爬取的队列中
+        self.task_queue.put((self.target, 0))
 
     def start(self):
-        logger.debug(self.target)
+        logger.debug("start of web spider.")
+        # 创建线程池
+        spider_thread_pool = ThreadPool(64)
+
+        # 获取初始任务，队列中一定会存在这个task
+        task = self.task_queue.get_nowait()
+        # 开始第一个任务，不要阻塞这里
+        spider_thread_pool.add_function(self._start, target=task)
+        spider_thread_pool.run(join=False)
+        logger.debug("没阻塞")
+        while not spider_thread_pool.finished or not self.task_queue.empty():
+            if not self.task_queue.empty():
+                while not self.task_queue.empty():
+                    task = self.task_queue.get_nowait()
+                    # print task
+                    # 判断URL的层数 并且 特征未出现过
+                    if task[1] < self.deep:
+                        spider_thread_pool.add_thread_list(self._start, target=task)
+
+            time.sleep(1)
+        logger.debug("end of web spider")
+
+    def _start(self, target):
+        logger.debug("start spider " + target[0])
+        deep = target[1]
+        target = target[0]
 
         service_args = [
             '--load-images=no',
         ]
 
         driver = webdriver.PhantomJS(executable_path=self.phantomjs_path, service_args=service_args)
-        driver.get(self.target)
+        driver.get(target)
         raw_html = driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
 
         all_cnt = 0
@@ -73,13 +103,18 @@ class WebSpider(SpiderBase):
                         cnt += 1
                         self.url_set.add(r)
                         self.links.append(a['href'])
-                        self.wait_queue.put(a['href'])
+                        self.task_queue.put((a['href'], deep + 1))
 
         logger.debug("".join(["All links: ", str(all_cnt)]))
         logger.debug("".join(["Get links: ", str(cnt)]))
 
     @staticmethod
     def format_url(url):
+        """
+        简单去重、去相似的URL
+        :param url: 待处理的URL
+        :return: URL的特征元组
+        """
 
         if urlparse.urlparse(url)[2] == "":
             url += '/'

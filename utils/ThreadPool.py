@@ -32,6 +32,16 @@ class ThreadPool(object):
         if callable(func):
             self.__function_list.put((func, kwargs))
 
+    def add_thread_list(self, fn, **kwargs):
+        # 获取thread name
+        try:
+            thread_name = str(fn.im_class).split(".")[-1].split("'")[0]
+        except AttributeError:
+            thread_name = fn.__name__
+
+        t = threading.Thread(target=fn, name=thread_name, kwargs=kwargs)
+        self.__thread_list.append(t)
+
     def run(self, join=True):
         # 从队列中获取工作函数
         while not self.__function_list.empty():

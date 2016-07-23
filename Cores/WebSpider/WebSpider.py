@@ -2,15 +2,18 @@
 # coding: utf-8
 # file: WebSpider
 # time: 2016/7/17 10:59
+
 import urlparse
 import Queue
 import time
+import threading
+from multiprocessing import cpu_count
 
 import tldextract
 from selenium import webdriver
 from bs4 import BeautifulSoup
 
-from utils.ThreadPool import ThreadPool
+from utils.ThreadPool2 import ThreadPool
 from utils.SpiderBase import SpiderBase
 from utils.data.LoggerHelp import logger
 
@@ -22,7 +25,7 @@ __all__ = ['WebSpider']
 
 
 class WebSpider(SpiderBase):
-    def __init__(self, target, deep=1, limit_domain=list()):
+    def __init__(self, target, deep=1, limit_domain=list(), thread_count=cpu_count()):
 
         # 设置phantomjs路径
         SpiderBase.__init__(self)
@@ -35,6 +38,7 @@ class WebSpider(SpiderBase):
             self.limit_domain = limit_domain
         else:
             self.limit_domain = ".".join(tldextract.extract(self.target))
+        self.thread_count = thread_count
 
         # 去重用的set
         self.url_set = set()
@@ -42,31 +46,51 @@ class WebSpider(SpiderBase):
         self.links = list()
         # 待爬取的队列
         self.task_queue = Queue.Queue()
+        self.spider_pool = None
 
         # 将初始目标置于待爬取的队列中
         self.task_queue.put((self.target, 0))
 
+        # 统计信息
+        self.raw_links_num = 0
+        self.filter_links_num = 0
+        self.links_num = 0
+
+        # 初始化 webdriver
+        self.service_args = [
+            '--load-images=no',
+        ]
+        self.driver = webdriver.PhantomJS(executable_path=self.phantomjs_path, service_args=self.service_args)
+        self.driver_lock = threading.Lock()
+
+    def do_spider(self):
+        t = threading.Thread(target=self.start, name="WebSpider.start")
+        t.start()
+
     def start(self):
         logger.debug("start of web spider.")
-        # 创建线程池
-        spider_thread_pool = ThreadPool(64)
 
-        # 获取初始任务，队列中一定会存在这个task
-        task = self.task_queue.get_nowait()
-        # 开始第一个任务，不要阻塞这里
-        spider_thread_pool.add_function(self._start, target=task)
-        spider_thread_pool.run(join=False)
-        logger.debug("没阻塞")
-        while not spider_thread_pool.finished or not self.task_queue.empty():
-            if not self.task_queue.empty():
-                while not self.task_queue.empty():
-                    task = self.task_queue.get_nowait()
-                    # print task
-                    # 判断URL的层数 并且 特征未出现过
-                    if task[1] < self.deep:
-                        spider_thread_pool.add_thread_list(self._start, target=task)
+        # 开始线程池，并且开启了线程分发器
+        self.spider_pool = ThreadPool(self.thread_count)
+        # 开始爬取第一个页面
+        self.spider_pool.add_func(self._start, target=self.task_queue.get_nowait())
+        while True:
 
-            time.sleep(1)
+            if (not self.spider_pool.working_thread_number) and self.task_queue.empty():
+                time.sleep(2)
+                if (not self.spider_pool.working_thread_number) and self.task_queue.empty():
+                    self.spider_pool.terminated()
+                    logger.debug("WebSpider loop end.")
+                    break
+
+            if self.task_queue.empty():
+                time.sleep(1)
+                continue
+
+            target = self.task_queue.get_nowait()
+            self.spider_pool.add_func(self._start, target=(target[0], target[1]))
+            time.sleep(0.1)
+
         logger.debug("end of web spider")
 
     def _start(self, target):
@@ -74,24 +98,34 @@ class WebSpider(SpiderBase):
         deep = target[1]
         target = target[0]
 
-        service_args = [
-            '--load-images=no',
-        ]
+        self.driver_lock.acquire()
+        retry_times = 2
+        while retry_times:
+            try:
+                self.driver.get(target)
+                break
+            except:
+                # driver.close()
+                logger.error("retry %d" % retry_times)
+                retry_times -= 1
+                if not retry_times:
+                    logger.warn("Time out when get %s HTML" % target)
+                    self.driver_lock.release()
+                    return
+                else:
+                    continue
+        self.driver_lock.release()
 
-        driver = webdriver.PhantomJS(executable_path=self.phantomjs_path, service_args=service_args)
-        driver.get(target)
-        raw_html = driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
+        raw_html = self.driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
 
-        all_cnt = 0
-        cnt = 0
         soup = BeautifulSoup(raw_html, "html5lib")
-        logger.debug("Get HTML done.")
+        logger.debug("Get %s HTML done. Deep: %s" % (target, deep))
 
         for a in soup.find_all("a", href=True):
             a['href'] = a['href'].strip()
             if a['href'].startswith('javascript:') or a['href'].startswith('#') or not a['href']:
                 continue
-            all_cnt += 1
+            self.raw_links_num += 1
             r = self.format_url(a['href'])
             # 如果该URL未出现过，并且在目标域中
             if r not in self.url_set:
@@ -100,13 +134,15 @@ class WebSpider(SpiderBase):
                     # *的时候匹配所有二级域名，或者只匹配特定的域名
                     if ((ext[0] == "*" or ext[0] == "") and tldextract.extract(a['href'])[1] == ext[1]) or \
                        (".".join(tldextract.extract(a['href'])) == domain):
-                        cnt += 1
+                        self.filter_links_num += 1
                         self.url_set.add(r)
                         self.links.append(a['href'])
-                        self.task_queue.put((a['href'], deep + 1))
+                        logger.debug(a['href'])
+                        if deep + 1 <= self.deep:
+                            self.task_queue.put((a['href'], deep + 1))
 
-        logger.debug("".join(["All links: ", str(all_cnt)]))
-        logger.debug("".join(["Get links: ", str(cnt)]))
+        logger.debug("".join(["Raw links: ", str(self.raw_links_num)]))
+        logger.debug("".join(["Filter links: ", str(self.filter_links_num)]))
 
     @staticmethod
     def format_url(url):

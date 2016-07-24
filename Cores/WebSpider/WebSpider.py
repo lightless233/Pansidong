@@ -27,7 +27,7 @@ __all__ = ['WebSpider']
 
 
 class WebSpider(SpiderBase):
-    def __init__(self, target, deep=1, limit_domain=list(), thread_count=cpu_count(), phantomjs_count=cpu_count()):
+    def __init__(self, target, deep=1, limit_domain=list(), thread_count=cpu_count()*2, phantomjs_count=cpu_count()):
 
         # 设置phantomjs路径
         SpiderBase.__init__(self)
@@ -78,7 +78,12 @@ class WebSpider(SpiderBase):
             self.driver_pool_lock.append(
                 threading.Lock()
             )
+            logger.info("%.2f%% finished." % ((float(i)*100)/float(self.phantomjs_count)))
         logger.info("initial finished.")
+
+    def __del__(self):
+        for driver in self.driver_pool:
+            driver.quit()
 
     def do_spider(self):
         t = threading.Thread(target=self.start, name="WebSpider.start")
@@ -130,7 +135,7 @@ class WebSpider(SpiderBase):
                 retry_times -= 1
                 if not retry_times:
                     logger.warn("Time out when get %s HTML" % target)
-                    self.driver_pool[phantomjs_tag].release()
+                    self.driver_pool_lock[phantomjs_tag].release()
                     return
                 else:
                     continue
@@ -165,7 +170,7 @@ class WebSpider(SpiderBase):
                             self.task_queue.put((a['href'], deep + 1))
 
         for log in http_log:
-            logger.debug(" ".join([log['request']['method'], log['request']['url'], str(log['request']['queryString'])]))
+            # logger.debug(" ".join([log['request']['method'], log['request']['url'], str(log['request']['queryString'])]))
             url = log['request']['url']
             self.raw_links_num += 1
             r = self.format_url(url)

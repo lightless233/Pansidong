@@ -48,7 +48,12 @@ from Cores.WebSpider.WebSpider import WebSpider
 #     print "try here 2"
 from utils.data.LoggerHelp import logger
 
-web_spider = WebSpider("http://www.china-pub.com", limit_domain=['*.china-pub.com'], deep=2, thread_count=50)
+web_spider = WebSpider(
+    target="http://www.lutongky.com/",
+    limit_domain=['*.lutongky.com'],
+    deep=5,
+    thread_count=20
+)
 web_spider.do_spider()
 # web_spider.start()
 # while True:

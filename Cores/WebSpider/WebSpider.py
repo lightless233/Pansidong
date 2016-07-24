@@ -2,7 +2,8 @@
 # coding: utf-8
 # file: WebSpider
 # time: 2016/7/17 10:59
-
+import json
+import random
 import urlparse
 import Queue
 import time
@@ -11,6 +12,7 @@ from multiprocessing import cpu_count
 
 import tldextract
 from selenium import webdriver
+from selenium.webdriver import DesiredCapabilities
 from bs4 import BeautifulSoup
 
 from utils.ThreadPool2 import ThreadPool
@@ -25,7 +27,7 @@ __all__ = ['WebSpider']
 
 
 class WebSpider(SpiderBase):
-    def __init__(self, target, deep=1, limit_domain=list(), thread_count=cpu_count()):
+    def __init__(self, target, deep=1, limit_domain=list(), thread_count=cpu_count(), phantomjs_count=cpu_count()):
 
         # 设置phantomjs路径
         SpiderBase.__init__(self)
@@ -39,6 +41,7 @@ class WebSpider(SpiderBase):
         else:
             self.limit_domain = ".".join(tldextract.extract(self.target))
         self.thread_count = thread_count
+        self.phantomjs_count = phantomjs_count
 
         # 去重用的set
         self.url_set = set()
@@ -57,11 +60,25 @@ class WebSpider(SpiderBase):
         self.links_num = 0
 
         # 初始化 webdriver
-        self.service_args = [
-            '--load-images=no',
-        ]
-        self.driver = webdriver.PhantomJS(executable_path=self.phantomjs_path, service_args=self.service_args)
-        self.driver_lock = threading.Lock()
+        self.dcap = dict(DesiredCapabilities.PHANTOMJS)
+        self.dcap["phantomjs.page.settings.resourceTimeout"] = 10
+        self.dcap["phantomjs.page.settings.loadImages"] = False
+
+        # self.driver = webdriver.PhantomJS(executable_path=self.phantomjs_path, desired_capabilities=self.dcap)
+        # self.driver_lock = threading.Lock()
+
+        # webdriver进程池
+        logger.info("initial web spider phantomjs process pool...")
+        self.driver_pool = list()
+        self.driver_pool_lock = list()
+        for i in range(self.phantomjs_count):
+            self.driver_pool.append(
+                webdriver.PhantomJS(executable_path=self.phantomjs_path, desired_capabilities=self.dcap)
+            )
+            self.driver_pool_lock.append(
+                threading.Lock()
+            )
+        logger.info("initial finished.")
 
     def do_spider(self):
         t = threading.Thread(target=self.start, name="WebSpider.start")
@@ -98,11 +115,14 @@ class WebSpider(SpiderBase):
         deep = target[1]
         target = target[0]
 
-        self.driver_lock.acquire()
+        # 随机取一个phantomjs进程
+        phantomjs_tag = random.randint(0, self.phantomjs_count-1)
+
+        self.driver_pool_lock[phantomjs_tag].acquire()
         retry_times = 2
         while retry_times:
             try:
-                self.driver.get(target)
+                self.driver_pool[phantomjs_tag].get(target)
                 break
             except:
                 # driver.close()
@@ -110,13 +130,16 @@ class WebSpider(SpiderBase):
                 retry_times -= 1
                 if not retry_times:
                     logger.warn("Time out when get %s HTML" % target)
-                    self.driver_lock.release()
+                    self.driver_pool[phantomjs_tag].release()
                     return
                 else:
                     continue
-        self.driver_lock.release()
 
-        raw_html = self.driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
+        raw_html = self.driver_pool[phantomjs_tag].execute_script(
+            "return document.getElementsByTagName('html')[0].innerHTML"
+        )
+        http_log = json.loads(self.driver_pool[phantomjs_tag].get_log("har")[0]["message"])["log"]["entries"]
+        self.driver_pool_lock[phantomjs_tag].release()
 
         soup = BeautifulSoup(raw_html, "html5lib")
         logger.debug("Get %s HTML done. Deep: %s" % (target, deep))
@@ -140,6 +163,24 @@ class WebSpider(SpiderBase):
                         logger.debug(a['href'])
                         if deep + 1 <= self.deep:
                             self.task_queue.put((a['href'], deep + 1))
+
+        for log in http_log:
+            logger.debug(" ".join([log['request']['method'], log['request']['url'], str(log['request']['queryString'])]))
+            url = log['request']['url']
+            self.raw_links_num += 1
+            r = self.format_url(url)
+            if r not in self.url_set:
+                for domain in self.limit_domain:
+                    ext = tldextract.extract(domain)
+                    # *的时候匹配所有二级域名，或者只匹配特定的域名
+                    if ((ext[0] == "*" or ext[0] == "") and tldextract.extract(url)[1] == ext[1]) or \
+                       (".".join(tldextract.extract(url)) == domain):
+                        self.filter_links_num += 1
+                        self.url_set.add(r)
+                        self.links.append(url)
+                        logger.debug(url)
+                        if deep + 1 <= self.deep:
+                            self.task_queue.put((url, deep + 1))
 
         logger.debug("".join(["Raw links: ", str(self.raw_links_num)]))
         logger.debug("".join(["Filter links: ", str(self.filter_links_num)]))

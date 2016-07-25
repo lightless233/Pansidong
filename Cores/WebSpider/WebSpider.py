@@ -64,9 +64,6 @@ class WebSpider(SpiderBase):
         self.dcap["phantomjs.page.settings.resourceTimeout"] = 10
         self.dcap["phantomjs.page.settings.loadImages"] = False
 
-        # self.driver = webdriver.PhantomJS(executable_path=self.phantomjs_path, desired_capabilities=self.dcap)
-        # self.driver_lock = threading.Lock()
-
         # webdriver进程池
         logger.info("initial web spider phantomjs process pool...")
         self.driver_pool = list()
@@ -78,12 +75,14 @@ class WebSpider(SpiderBase):
             self.driver_pool_lock.append(
                 threading.Lock()
             )
-            logger.info("%.2f%% finished." % ((float(i)*100)/float(self.phantomjs_count)))
+            logger.info("%.2f%% finished." % ((float(i+1)*100)/float(self.phantomjs_count)))
         logger.info("initial finished.")
 
     def __del__(self):
         for driver in self.driver_pool:
             driver.quit()
+            del driver
+        del self.driver_pool
 
     def do_spider(self):
         t = threading.Thread(target=self.start, name="WebSpider.start")
@@ -140,52 +139,35 @@ class WebSpider(SpiderBase):
                 else:
                     continue
 
+        # 获取网页HTML
         raw_html = self.driver_pool[phantomjs_tag].execute_script(
             "return document.getElementsByTagName('html')[0].innerHTML"
         )
+        # 获取网页加载过程中发生的HTTP请求
         http_log = json.loads(self.driver_pool[phantomjs_tag].get_log("har")[0]["message"])["log"]["entries"]
+        # 获取当前的页面URL
+        base_url = self.driver_pool[phantomjs_tag].current_url
         self.driver_pool_lock[phantomjs_tag].release()
 
         soup = BeautifulSoup(raw_html, "html5lib")
         logger.debug("Get %s HTML done. Deep: %s" % (target, deep))
 
+        # 处理文件中获取的href标签
         for a in soup.find_all("a", href=True):
-            a['href'] = a['href'].strip()
-            if a['href'].startswith('javascript:') or a['href'].startswith('#') or not a['href']:
+            url = a['href'].strip()
+            # 去掉非URL的部分
+            if url.startswith('javascript:') or url.startswith('#') or not url:
                 continue
+            elif not url.startswith('https://') or not url.startswith('http://'):
+                # 将相对路径转换为绝对路径
+                url = urlparse.urljoin(base_url, url)
             self.raw_links_num += 1
-            r = self.format_url(a['href'])
-            # 如果该URL未出现过，并且在目标域中
-            if r not in self.url_set:
-                for domain in self.limit_domain:
-                    ext = tldextract.extract(domain)
-                    # *的时候匹配所有二级域名，或者只匹配特定的域名
-                    if ((ext[0] == "*" or ext[0] == "") and tldextract.extract(a['href'])[1] == ext[1]) or \
-                       (".".join(tldextract.extract(a['href'])) == domain):
-                        self.filter_links_num += 1
-                        self.url_set.add(r)
-                        self.links.append(a['href'])
-                        logger.debug(a['href'])
-                        if deep + 1 <= self.deep:
-                            self.task_queue.put((a['href'], deep + 1))
+            self.check_same_url(url, deep)
 
         for log in http_log:
-            # logger.debug(" ".join([log['request']['method'], log['request']['url'], str(log['request']['queryString'])]))
             url = log['request']['url']
             self.raw_links_num += 1
-            r = self.format_url(url)
-            if r not in self.url_set:
-                for domain in self.limit_domain:
-                    ext = tldextract.extract(domain)
-                    # *的时候匹配所有二级域名，或者只匹配特定的域名
-                    if ((ext[0] == "*" or ext[0] == "") and tldextract.extract(url)[1] == ext[1]) or \
-                       (".".join(tldextract.extract(url)) == domain):
-                        self.filter_links_num += 1
-                        self.url_set.add(r)
-                        self.links.append(url)
-                        logger.debug(url)
-                        if deep + 1 <= self.deep:
-                            self.task_queue.put((url, deep + 1))
+            self.check_same_url(url, deep)
 
         logger.debug("".join(["Raw links: ", str(self.raw_links_num)]))
         logger.debug("".join(["Filter links: ", str(self.filter_links_num)]))
@@ -198,17 +180,46 @@ class WebSpider(SpiderBase):
         :return: URL的特征元组
         """
 
+        # 规范化URL，在末尾增加 /
         if urlparse.urlparse(url)[2] == "":
             url += '/'
 
         url_structure = urlparse.urlparse(url)
-        netloc = url_structure[1]
-        path = url_structure[2]
-        query = url_structure[4]
+        netloc = url_structure.netloc
+        path = url_structure.path
+        query = url_structure.query
+        suffix = url_structure.path.split('.')[-1]
 
         result = (
             netloc,
             tuple([len(i) for i in path.split('/')]),
-            tuple(sorted([i.split('=')[0] for i in query.split('&')]))
+            tuple(sorted([i.split('=')[0] for i in query.split('&')])),
         )
-        return result
+        return result, suffix
+
+    def check_same_url(self, url, deep):
+        r, suffix = self.format_url(url)
+        if suffix:
+            # 有后缀，是个正常的网页，继续判断相似性
+            # 如果该URL未出现过，并且在目标域中
+            if r not in self.url_set:
+                for domain in self.limit_domain:
+                    ext = tldextract.extract(domain)
+                    # *的时候匹配所有二级域名，或者只匹配特定的域名
+                    if ((ext[0] == "*" or ext[0] == "") and tldextract.extract(url)[1] == ext[1]) or \
+                            (".".join(tldextract.extract(url)) == domain):
+                        self.filter_links_num += 1
+                        self.url_set.add(r)
+                        self.links.append(url)
+                        logger.debug(url)
+                        if deep + 1 <= self.deep:
+                            self.task_queue.put((url, deep + 1))
+        else:
+            # 无后缀，是目录 或 伪静态 或 没有后缀的网站，不判相似
+            # 直接添加到links中
+            self.links.append(url)
+            logger.debug(url)
+            if deep + 1 <= self.deep:
+                self.task_queue.put((url, deep + 1))
+
+

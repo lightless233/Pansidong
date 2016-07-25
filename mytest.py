@@ -49,10 +49,10 @@ from Cores.WebSpider.WebSpider import WebSpider
 from utils.data.LoggerHelp import logger
 
 web_spider = WebSpider(
-    target="http://www.lutongky.com/",
-    limit_domain=['*.lutongky.com'],
+    target="http://www.yundaex.com/",
+    limit_domain=['*.yundaex.com'],
     deep=5,
-    thread_count=20
+    thread_count=50
 )
 web_spider.do_spider()
 # web_spider.start()
@@ -66,7 +66,6 @@ while True:
     logger.debug("Left tasks number: %d" % web_spider.task_queue.qsize())
     logger.debug("links num before filter: %d" % web_spider.raw_links_num)
     logger.debug("links num after filter: %d" % web_spider.filter_links_num)
-
 
     if web_spider.spider_pool.working_thread_number == 0:
         break

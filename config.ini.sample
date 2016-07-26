@@ -2,7 +2,7 @@
 # This is only an example file.
 
 # ProxySpider configuare
-[ProxySpider]
+[Pansidong]
 # If debug should be enable. The value of this option is "On" or "Off"
 # On - enable debug log
 # Off - disable debug log.

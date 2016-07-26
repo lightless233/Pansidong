@@ -64,18 +64,26 @@ class WebSpider(SpiderBase):
         self.dcap["phantomjs.page.settings.resourceTimeout"] = 10
         self.dcap["phantomjs.page.settings.loadImages"] = False
 
+        # dcap 好像无效
+        # self.service_args = [
+        #     "--webdriver-loglevel=NONE",
+        #     "--load-images=no",
+        # ]
+
         # webdriver进程池
         logger.info("initial web spider phantomjs process pool...")
         self.driver_pool = list()
         self.driver_pool_lock = list()
         for i in range(self.phantomjs_count):
             self.driver_pool.append(
-                webdriver.PhantomJS(executable_path=self.phantomjs_path, desired_capabilities=self.dcap)
+                webdriver.PhantomJS(executable_path=self.phantomjs_path, desired_capabilities=self.dcap,
+                                    # service_args=self.service_args
+                                    )
             )
             self.driver_pool_lock.append(
                 threading.Lock()
             )
-            logger.info("%.2f%% finished." % ((float(i+1)*100)/float(self.phantomjs_count)))
+            logger.info("%.2f%% finished." % ((float(i + 1) * 100) / float(self.phantomjs_count)))
         logger.info("initial finished.")
 
     def __del__(self):

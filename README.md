@@ -17,7 +17,7 @@
 * <del>Web爬虫多线程控制</del>
 * <del>Web爬虫的目标域限制</del>
 * 去重算法优化
-* 增加爬取form的action部分
+* 增加爬取form的action部分，src属性，以javascrip:开头的href，有onclick属性，form的action，自动提交。
 * <del>获取打开页面时加载的ajax请求</del>
 * 增加Web代理功能，让浏览器代理到爬虫上，手工点击增加链接数量
 * 从代理池中获取可用的代理并自动利用代理爬取
@@ -25,7 +25,7 @@
 * 增加UA支持
 
 ### 杂项
-* 增加log的彩色输出
+* <del>增加log的彩色输出</del>
 
 ## 更新日志
 * 2016-7-24

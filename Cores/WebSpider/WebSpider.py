@@ -27,7 +27,8 @@ __all__ = ['WebSpider']
 
 
 class WebSpider(SpiderBase):
-    def __init__(self, target, deep=1, limit_domain=list(), thread_count=cpu_count()*2, phantomjs_count=cpu_count()):
+    def __init__(self, target, deep=1, limit_domain=list(), thread_count=cpu_count()*2, phantomjs_count=cpu_count(),
+                 filter_similar=False):
 
         # 设置phantomjs路径
         SpiderBase.__init__(self)
@@ -42,9 +43,11 @@ class WebSpider(SpiderBase):
             self.limit_domain = ".".join(tldextract.extract(self.target))
         self.thread_count = thread_count
         self.phantomjs_count = phantomjs_count
+        self.filter_similar = filter_similar
 
         # 去重用的set
         self.url_set = set()
+        self.url_filename_set = set()
         # 存储爬虫结果的list
         self.links = list()
         # 待爬取的队列
@@ -60,14 +63,16 @@ class WebSpider(SpiderBase):
         self.links_num = 0
 
         # 初始化 webdriver
-        self.dcap = dict(DesiredCapabilities.PHANTOMJS)
-        self.dcap["phantomjs.page.settings.resourceTimeout"] = 10
-        self.dcap["phantomjs.page.settings.loadImages"] = False
-
         # dcap 好像无效
+        # self.dcap = dict(DesiredCapabilities.PHANTOMJS)
+        # self.dcap["phantomjs.page.settings.resourceTimeout"] = 10
+        # self.dcap["phantomjs.page.settings.loadImages"] = False
+
         # self.service_args = [
-        #     "--webdriver-loglevel=NONE",
+        #     "--webdriver-loglevel=DEBUG",
+        #     "--webdriver-logfile=phantomjs.log"
         #     "--load-images=no",
+        #     "--disk-cache=true"
         # ]
 
         # webdriver进程池
@@ -76,7 +81,7 @@ class WebSpider(SpiderBase):
         self.driver_pool_lock = list()
         for i in range(self.phantomjs_count):
             self.driver_pool.append(
-                webdriver.PhantomJS(executable_path=self.phantomjs_path, desired_capabilities=self.dcap,
+                webdriver.PhantomJS(executable_path=self.phantomjs_path, # desired_capabilities=self.dcap,
                                     # service_args=self.service_args
                                     )
             )
@@ -169,13 +174,13 @@ class WebSpider(SpiderBase):
             elif not url.startswith('https://') or not url.startswith('http://'):
                 # 将相对路径转换为绝对路径
                 url = urlparse.urljoin(base_url, url)
-            self.raw_links_num += 1
-            self.check_same_url(url, deep)
+            self.check_same_url(url, deep, self.filter_similar)
 
+        # 处理打开页面时产生的请求
         for log in http_log:
             url = log['request']['url']
-            self.raw_links_num += 1
-            self.check_same_url(url, deep)
+            logger.error(url)
+            self.check_same_url(url, deep, self.filter_similar)
 
         logger.debug("".join(["Raw links: ", str(self.raw_links_num)]))
         logger.debug("".join(["Filter links: ", str(self.filter_links_num)]))
@@ -205,29 +210,44 @@ class WebSpider(SpiderBase):
         )
         return result, suffix
 
-    def check_same_url(self, url, deep):
-        r, suffix = self.format_url(url)
-        if suffix:
-            # 有后缀，是个正常的网页，继续判断相似性
-            # 如果该URL未出现过，并且在目标域中
-            if r not in self.url_set:
-                for domain in self.limit_domain:
-                    ext = tldextract.extract(domain)
-                    # *的时候匹配所有二级域名，或者只匹配特定的域名
-                    if ((ext[0] == "*" or ext[0] == "") and tldextract.extract(url)[1] == ext[1]) or \
-                            (".".join(tldextract.extract(url)) == domain):
-                        self.filter_links_num += 1
-                        self.url_set.add(r)
-                        self.links.append(url)
-                        logger.debug(url)
-                        if deep + 1 <= self.deep:
-                            self.task_queue.put((url, deep + 1))
-        else:
-            # 无后缀，是目录 或 伪静态 或 没有后缀的网站，不判相似
-            # 直接添加到links中
-            self.links.append(url)
-            logger.debug(url)
-            if deep + 1 <= self.deep:
-                self.task_queue.put((url, deep + 1))
+    def check_same_url(self, url, deep, filter_similar):
 
+        self.raw_links_num += 1
 
+        # 先判断域名在不在目标域中
+        if self.check_domain_limit(url):
+            # 格式化url
+            r, suffix = self.format_url(url)
+            if suffix:
+                # 有后缀，正常页面，根据是否判断相似性的设置继续判断
+                if filter_similar and (r not in self.url_set):
+                    self.filter_links_num += 1
+                    self.url_set.add(r)
+                    self.links.append(url)
+                    logger.info(url)
+                    if deep + 1 <= self.deep:
+                        self.task_queue.put((url, deep + 1))
+                elif not filter_similar and (url not in self.links):
+                    self.filter_links_num += 1
+                    self.links.append(url)
+                    logger.info(url)
+                    if deep + 1 <= self.deep:
+                        self.task_queue.put((url, deep + 1))
+            else:
+                # 没有后缀，是个目录，去重，不去相似
+                if url not in self.links:
+                    self.filter_links_num += 1
+                    self.links.append(url)
+                    logger.info(url)
+                    if deep + 1 <= self.deep:
+                        self.task_queue.put((url, deep + 1))
+
+    def check_domain_limit(self, url):
+        for domain in self.limit_domain:
+            ext = tldextract.extract(domain)
+            # *的时候匹配所有二级域名，或者只匹配特定的域名
+            if ((ext[0] == "*" or ext[0] == "") and tldextract.extract(url)[1] == ext[1]) or \
+                    (".".join(tldextract.extract(url)) == domain):
+                return True
+
+        return False

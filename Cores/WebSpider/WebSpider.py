@@ -64,16 +64,16 @@ class WebSpider(SpiderBase):
 
         # 初始化 webdriver
         # dcap 好像无效
-        # self.dcap = dict(DesiredCapabilities.PHANTOMJS)
-        # self.dcap["phantomjs.page.settings.resourceTimeout"] = 10
-        # self.dcap["phantomjs.page.settings.loadImages"] = False
+        self.dcap = dict(DesiredCapabilities.PHANTOMJS)
+        self.dcap["phantomjs.page.settings.resourceTimeout"] = 10
+        self.dcap["phantomjs.page.settings.loadImages"] = False
 
-        # self.service_args = [
-        #     "--webdriver-loglevel=DEBUG",
-        #     "--webdriver-logfile=phantomjs.log"
-        #     "--load-images=no",
-        #     "--disk-cache=true"
-        # ]
+        self.service_args = [
+            "--webdriver-loglevel=DEBUG",
+            "--webdriver-logfile=phantomjs.log"
+            "--load-images=no",
+            "--disk-cache=true"
+        ]
 
         # webdriver进程池
         logger.info("initial web spider phantomjs process pool...")
@@ -81,8 +81,8 @@ class WebSpider(SpiderBase):
         self.driver_pool_lock = list()
         for i in range(self.phantomjs_count):
             self.driver_pool.append(
-                webdriver.PhantomJS(executable_path=self.phantomjs_path, # desired_capabilities=self.dcap,
-                                    # service_args=self.service_args
+                webdriver.PhantomJS(executable_path=self.phantomjs_path, desired_capabilities=self.dcap,
+                                    service_args=self.service_args
                                     )
             )
             self.driver_pool_lock.append(

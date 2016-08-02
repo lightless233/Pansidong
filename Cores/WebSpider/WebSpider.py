@@ -27,8 +27,8 @@ __all__ = ['WebSpider']
 
 
 class WebSpider(SpiderBase):
-    def __init__(self, target, deep=1, limit_domain=list(), thread_count=cpu_count()*2, phantomjs_count=cpu_count(),
-                 filter_similar=False):
+    def __init__(self, target, deep=1, limit_domain=list(), thread_count=cpu_count()*2,
+                 phantomjs_count=cpu_count(), filter_similar=False):
 
         # 设置phantomjs路径
         SpiderBase.__init__(self)
@@ -47,7 +47,7 @@ class WebSpider(SpiderBase):
 
         # 去重用的set
         self.url_set = set()
-        self.url_filename_set = set()
+        self.url_param_set = set()
         # 存储爬虫结果的list
         self.links = list()
         # 待爬取的队列
@@ -179,7 +179,7 @@ class WebSpider(SpiderBase):
         # 处理打开页面时产生的请求
         for log in http_log:
             url = log['request']['url']
-            logger.error(url)
+            logger.info(url)
             self.check_same_url(url, deep, self.filter_similar)
 
         logger.debug("".join(["Raw links: ", str(self.raw_links_num)]))
@@ -210,12 +210,49 @@ class WebSpider(SpiderBase):
         )
         return result, suffix
 
+    @staticmethod
+    def format_url_param(url):
+        url_st = urlparse.urlparse(url)
+        queries = url_st.query
+        new_queries = ""
+        for eq in queries.split("&"):
+            key = eq.split("=")[0]
+            value = eq.split("=")[1]
+            if value.isdigit():
+                value = "<int>"
+            new_queries += key + "=" + value + "&"
+        new_queries = new_queries.strip("&")
+        url = urlparse.urlunparse((
+            url_st.scheme,
+            url_st.netloc,
+            url_st.path,
+            url_st.params,
+            new_queries,
+            url_st.fragment,
+        ))
+        return url
+
     def check_same_url(self, url, deep, filter_similar):
+
+        # 判断URL的后缀是否为图片等
+        url_st = urlparse.urlparse(url)
+        suffix = url_st.path.split(".")[-1]
+        if suffix.lower() in ["jpg", "png", "gif", "jpeg", "bmp", "css", "ttf"]:
+            return
 
         self.raw_links_num += 1
 
         # 先判断域名在不在目标域中
         if self.check_domain_limit(url):
+            # 在目标域中，判断参数格式
+            # 如果已经在set中，说明之前爬到过类似参数的页面，直接return
+            # 如果不在set中，说明之前未出现过，继续向下执行处理，并将其添加到set中
+            formatted_url = self.format_url_param(url)
+            if formatted_url not in self.url_param_set:
+                self.url_param_set.add(formatted_url)
+            else:
+                return
+
             # 格式化url
             r, suffix = self.format_url(url)
             if suffix:

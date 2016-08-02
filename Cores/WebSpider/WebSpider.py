@@ -160,6 +160,7 @@ class WebSpider(SpiderBase):
         http_log = json.loads(self.driver_pool[phantomjs_tag].get_log("har")[0]["message"])["log"]["entries"]
         # 获取当前的页面URL
         base_url = self.driver_pool[phantomjs_tag].current_url
+        # 释放锁
         self.driver_pool_lock[phantomjs_tag].release()
 
         soup = BeautifulSoup(raw_html, "html5lib")
@@ -185,6 +186,7 @@ class WebSpider(SpiderBase):
         logger.debug("".join(["Raw links: ", str(self.raw_links_num)]))
         logger.debug("".join(["Filter links: ", str(self.filter_links_num)]))
 
+    # TODO: 去重相关的函数抽出去到utils中
     @staticmethod
     def format_url(url):
         """
@@ -192,7 +194,6 @@ class WebSpider(SpiderBase):
         :param url: 待处理的URL
         :return: URL的特征元组
         """
-
         # 规范化URL，在末尾增加 /
         if urlparse.urlparse(url)[2] == "":
             url += '/'

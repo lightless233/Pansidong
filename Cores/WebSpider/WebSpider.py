@@ -214,6 +214,8 @@ class WebSpider(SpiderBase):
     def format_url_param(url):
         url_st = urlparse.urlparse(url)
         queries = url_st.query
+        if not queries:
+            return
         new_queries = ""
         for eq in queries.split("&"):
             key = eq.split("=")[0]
@@ -248,10 +250,12 @@ class WebSpider(SpiderBase):
             # 如果已经在set中，说明之前爬到过类似参数的页面，直接return
             # 如果不在set中，说明之前未出现过，继续向下执行处理，并将其添加到set中
             formatted_url = self.format_url_param(url)
-            if formatted_url not in self.url_param_set:
-                self.url_param_set.add(formatted_url)
-            else:
-                return
+            # logger.warning(formatted_url)
+            if formatted_url is not None:
+                if formatted_url not in self.url_param_set:
+                    self.url_param_set.add(formatted_url)
+                else:
+                    return
 
             # 格式化url
             r, suffix = self.format_url(url)

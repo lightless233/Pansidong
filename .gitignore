@@ -88,7 +88,7 @@ ENV/
 # Rope project settings
 .ropeproject
 
-.idea
+.idea/
 proxy-ip-list.csv
 config.ini
 

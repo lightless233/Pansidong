@@ -4,6 +4,8 @@
 import sys
 import datetime
 import time
+import threading
+import Queue
 
 import requests
 from sqlalchemy.exc import SQLAlchemyError
@@ -11,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from utils.Data.LoggerHelp import logger
 from utils.DBConnection import DBConnection
 from utils.Data.Tables import Proxy
+from utils.ThreadPool2 import ThreadPool
 
 __author__ = "lightless"
 __email__ = "root@lightless.me"
@@ -37,29 +40,38 @@ class ProxyManage(object):
         db.connect()
         self.session = db.session
 
-        if kwargs.get("all", None) is not None:
-            # 检查数据库中的全部ip
-            pass
-        elif kwargs.get("ips", None) is not None:
-            # 检查提供的IP
-            self._check_ip_list(kwargs.get("ips"))
+        # 获取参数
+        self.kwargs = kwargs
+
+        # 检测全部IP时的线程池
+        self.thread_pool = None
+
+        self.result_queue = Queue.Queue()
 
     def __del__(self):
         del self.session
 
-    def _check(self, ip, port):
+    def check(self):
+        if self.kwargs.get("all", None) is not None:
+            # 检查数据库中的全部ip
+            self._check_ip_all()
+        elif self.kwargs.get("ips", None) is not None:
+            # 检查提供的IP
+            self._check_ip_list(self.kwargs.get("ips"))
+
+    def _check(self, ip, port, save_to_queue=False):
 
         # 检查参数合法性
         if ip == "" or port == "":
             logger.error("Invalid ip or port found. Skipping...")
             return False, -1.0
 
-        # 2次重试机会
-        retry = 2
+        # 3次重试机会
+        retry = 3
         time_summary = 0.0
         success = False
         while retry:
-            logger.debug("Times: {0}. Trying {1}:{2} connection...".format(2-retry+1, ip, port))
+            logger.debug("Times: {0}. Trying {1}:{2} connection...".format(3-retry+1, ip, port))
             proxies = {
                 'http': ip + ":" + port
             }
@@ -70,12 +82,13 @@ class ProxyManage(object):
                 time_summary = time.time() - time_start
                 success = True
                 break
-            except requests.RequestException, e:
-                logger.warning(e.message)
+            except requests.RequestException:
+                logger.warning("{0}:{1} proxy time out.".format(ip, port))
                 continue
             finally:
                 retry -= 1
-
+        if save_to_queue:
+            self.result_queue.put((ip, port, success, time_summary))
         return success, time_summary
 
     def _check_ip_list(self, raw_ips):
@@ -94,6 +107,29 @@ class ProxyManage(object):
         except KeyError:
             logger.fatal("No IP provide.")
             sys.exit(1)
+
+    def _check_ip_all(self):
+        rows = self.session.query(Proxy).all()
+        self.thread_pool = ThreadPool(thread_count=10 if not len(rows)/20 else len(rows)/20)
+        for row in rows:
+            self.thread_pool.add_func(self._check, ip=row.ip, port=row.port, save_to_queue=True)
+        self.thread_pool.close()
+        self.thread_pool.join()
+        while True:
+            if self.thread_pool.exit is True and self.result_queue.empty():
+                break
+            else:
+                try:
+                    res = self.result_queue.get_nowait()
+                    ip = res[0]
+                    port = res[1]
+                    delay = res[3]
+                    alive = res[2]
+                    logger.info("IP {0} Connect {1}, time: {2:.2f}s".format(ip, "success", delay)) if alive \
+                        else logger.error("IP {0} Connect failed.".format(ip))
+                    self._update_db(ip, port, delay, alive)
+                except Queue.Empty:
+                    time.sleep(2)
 
     def _update_db(self, ip, port, delay, alive):
         proxy_item = self.session.query(Proxy).filter(Proxy.ip == ip, Proxy.port == port).all()

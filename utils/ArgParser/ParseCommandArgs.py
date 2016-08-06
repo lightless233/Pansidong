@@ -42,10 +42,12 @@ class ParseCommandArgs(object):
             ips = self.command_args.check_proxy
             logger.debug(ips)
             pm = ProxyManage.ProxyManage(ips=ips)
+            pm.check()
             sys.exit(0)
 
         # --check-proxy-all
         if self.command_args.check_proxy_all:
             logger.debug("Check all proxy selected.")
-            pm = ProxyManage.ProxyManage()
+            pm = ProxyManage.ProxyManage(all=True)
+            pm.check()
             sys.exit(0)

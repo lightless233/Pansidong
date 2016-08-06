@@ -9,7 +9,7 @@ from Cores.ProxySpider import ProxySpider
 from Cores.ProxyManage import ProxyManage
 from utils.ArgParser import ArgParse
 from utils.ArgParser.Messages import Version
-from utils.data.LoggerHelp import logger
+from utils.Data.LoggerHelp import logger
 
 __author__ = "lightless"
 __email__ = "root@lightless.me"

@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 
 from utils.SpiderBase import SpiderBase
-from utils.data.LoggerHelp import logger
+from utils.Data.LoggerHelp import logger
 
 __author__ = "lightless"
 __email__ = "root@lightless.me"

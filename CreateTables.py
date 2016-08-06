@@ -5,8 +5,8 @@ import ConfigParser
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from utils.data.LoggerHelp import logger
-from utils.data.Tables import Proxy
+from utils.Data.LoggerHelp import logger
+from utils.Data.Tables import Proxy
 
 __author__ = "lightless"
 __email__ = "root@lightless.me"

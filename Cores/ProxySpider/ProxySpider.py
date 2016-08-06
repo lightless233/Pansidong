@@ -4,8 +4,8 @@ import sys
 
 from utils.AutoLoad import AutoLoad
 from utils.ThreadPool import ThreadPool
-from utils.data.LoggerHelp import logger
-from utils.data.SaveData import SaveData
+from utils.Data.LoggerHelp import logger
+from utils.Data.SaveData import SaveData
 
 __author__ = "lightless"
 __email__ = "root@lightless.me"

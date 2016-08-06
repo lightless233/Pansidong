@@ -20,7 +20,7 @@ class ProxyManage(object):
     def __init__(self):
         cf = ConfigParser.ConfigParser()
         cf.read("config.ini")
-        db_name = cf.get("ProxySpider", "database")
+        db_name = cf.get("Pansidong", "database")
         username = cf.get(db_name, "username")
         password = cf.get(db_name, "password")
         host = cf.get(db_name, "host")

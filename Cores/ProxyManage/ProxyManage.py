@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import sys
 import ConfigParser
 import datetime
 import time
@@ -17,76 +18,71 @@ __email__ = "root@lightless.me"
 
 
 class ProxyManage(object):
-    def __init__(self):
-        cf = ConfigParser.ConfigParser()
-        cf.read("config.ini")
-        db_name = cf.get("Pansidong", "database")
-        username = cf.get(db_name, "username")
-        password = cf.get(db_name, "password")
-        host = cf.get(db_name, "host")
-        database = cf.get(db_name, "database")
 
-        self.engine = create_engine("mysql://" + username + ":" + password + "@" + host + "/" + database)
-        self.db_session = sessionmaker(bind=self.engine)
-        self.session = self.db_session()
-
-        self.headers = {'User-Agent': 'curl/7.49.1'}
-
-    def check(self, amount=None):
+    def __init__(self, **kwargs):
         """
-        Check if the proxy address is valid.
-        :return: None
+        初始化代理地址检查
+        :param kwargs:
+                        all: True: 检测数据库中全部的IP, False：检测指定的IP列表，以逗号分隔
+                        ips: 待检测的IP，"1.1.1.1:80, 2.2.2.2:3128"
         """
-        # TODO: 改成多线程检测
-        if amount:
-            proxy_list = self.session.query(Proxy).filter(Proxy.id <= amount).all()
+        super(ProxyManage, self).__init__()
+
+        # request headers
+        self.headers = {
+            'User-Agent': 'curl/7.49.1',
+        }
+
+        if kwargs.get("all", None) is not None:
+            # 检查数据库中的全部ip
+            pass
         else:
-            proxy_list = self.session.query(Proxy).all()
-        for proxy in proxy_list:
-            proxy_ip = proxy.ip
-            proxy_port = proxy.port
-            logger.info("Testing %s:%s" % (proxy_ip, proxy_port))
-            s, t = self.__check_proxy(proxy_ip, proxy_port)
-            logger.debug("Time: " + str(t) + " Success: " + str(s))
-
-            # 更新数据库
-            proxy_item = self.session.query(Proxy).filter(Proxy.id == proxy.id).first()
-            proxy_item.times = t
-            proxy_item.updated_time = datetime.datetime.now()
-            if s:
-                proxy_item.is_alive = 1
-
-            self.session.add(proxy_item)
-        self.session.commit()
-
-    def __check_proxy(self, proxy_ip, proxy_port):
-        retry = 3
-        time_summary = 0.0
-        success_count = 0
-        while retry:
-            # logger.debug("Retrying left: %d" % retry)
-            proxies = {
-                'http': proxy_ip + ":" + proxy_port
-            }
-            time_start = time.time()
+            # 检查提供的IP
             try:
-                requests.get("http://ip.cn", headers=self.headers, proxies=proxies, timeout=20)
-                elapsed_time = time.time() - time_start
-                time_summary += elapsed_time
-                success_count += 1
+                raw_ips = kwargs.get("ips", None)
+                if raw_ips is not None:
+                    ips = raw_ips.split(",")
+                    for ip in ips:
+                        ip_stu = ip.split(":")
+                        s, t = self._check(ip_stu[0], ip_stu[1])
+                        logger.info("IP {0} Connect {1}, time: {2}".format(ip, "success", t)) if s \
+                            else logger.error("IP {0} Connect failed.".format(ip))
+                else:
+                    logger.fatal("No IP provide.")
+                    sys.exit(1)
+            except KeyError:
+                logger.fatal("No IP provide.")
+                sys.exit(1)
+
+    def _check(self, ip, port):
+
+        # 检查参数合法性
+        if ip == "" or port == "":
+            logger.error("Invalid ip or port found. Skipping...")
+            return False, -1.0
+
+        # 2次重试机会
+        retry = 2
+        time_summary = 0.0
+        success = False
+        while retry:
+            logger.debug("Trying {0}:{1} connection...".format(ip, port))
+            proxies = {
+                'http': ip + ":" + port
+            }
+
+            try:
+                time_start = time.time()
+                requests.get("http://ip.cn/", headers=self.headers, proxies=proxies, timeout=10)
+                time_summary = time.time() - time_start
+                success = True
+                break
             except requests.RequestException, e:
-                # logger.debug(e.message)
+                logger.warning(e.message)
                 continue
             finally:
                 retry -= 1
-        return success_count, 0 if success_count == 0 else "%.2f" % (time_summary/success_count)
 
-    def get_live_proxy_list(self, time_limit=None):
-        if time_limit:
-            return self.session.query(Proxy).filter(Proxy.is_alive == 1, Proxy.times <= time_limit).all()
-        else:
-            return self.session.query(Proxy).filter(Proxy.is_alive == 1).all()
-
-
+        return success, time_summary
 
 

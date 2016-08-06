@@ -6,6 +6,7 @@
 import sys
 
 from Cores.ProxySpider import ProxySpider
+from Cores.ProxyManage import ProxyManage
 from utils.ArgParser import ArgParse
 from utils.ArgParser.Messages import Version
 from utils.data.LoggerHelp import logger
@@ -35,5 +36,16 @@ class ParseCommandArgs(object):
             ps.start()
             sys.exit(0)
 
-            # --check
+        # --check-proxy
+        if self.command_args.check_proxy:
+            logger.debug("Check proxy selected.")
+            ips = self.command_args.check_proxy
+            logger.debug(ips)
+            pm = ProxyManage.ProxyManage(ips=ips)
+            sys.exit(0)
 
+        # --check-proxy-all
+        if self.command_args.check_proxy_all:
+            logger.debug("Check all proxy selected.")
+            pm = ProxyManage.ProxyManage()
+            sys.exit(0)

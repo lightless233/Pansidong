@@ -16,15 +16,17 @@ pansidong_parse = argparse.ArgumentParser(description=Banner, formatter_class=ar
 
 # 设置命令组
 misc_group = pansidong_parse.add_argument_group("Misc")
+proxy_group = pansidong_parse.add_argument_group("Proxy")
 attack_group = pansidong_parse.add_argument_group("Attack")
 spider_group = pansidong_parse.add_argument_group("Spider")
 
 # 添加Misc组的命令
 misc_group.add_argument("--version", help="Show program version.", action="store_true")
-misc_group.add_argument("--update-proxy-db", help="Update proxy IP Address.", action="store_true")
-misc_group.add_argument("--check-proxy", metavar="[127.0.0.1:9050]",
-                        type=str,
-                        help="Check proxy availability. If none IP provide, it will check proxy pool.(!!SLOW!!)")
+
+# 添加Proxy组的命令
+proxy_group.add_argument("--update-proxy-db", help="Update proxy IP Address.", action="store_true")
+proxy_group.add_argument("--check-proxy", metavar="IP:PORT", type=str, help="Check proxy availability.")
+proxy_group.add_argument("--check-proxy-all", help="Check ALL proxy availability. !!VERY SLOW!!", action="store_true")
 
 # 添加Attack组的命令
 

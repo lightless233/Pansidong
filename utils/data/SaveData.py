@@ -2,10 +2,12 @@
 # coding: utf-8
 
 import codecs
+import os
 import time
 import ConfigParser
-
+import sys
 import datetime
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -25,13 +27,17 @@ class SaveData(object):
         self.thread_pool = thread_pool
 
         if use_database:
-            cf = ConfigParser.ConfigParser()
-            cf.read("config.ini")
-            db_name = cf.get("ProxySpider", "database")
-            username = cf.get(db_name, "username")
-            password = cf.get(db_name, "password")
-            host = cf.get(db_name, "host")
-            database = cf.get(db_name, "database")
+            try:
+                cf = ConfigParser.ConfigParser()
+                cf.read("config.ini")
+                db_name = cf.get("Pansidong", "database")
+                username = cf.get(db_name, "username")
+                password = cf.get(db_name, "password")
+                host = cf.get(db_name, "host")
+                database = cf.get(db_name, "database")
+            except AttributeError, e:
+                logger.fatal(e.message)
+                sys.exit(1)
             self.engine = create_engine("mysql://" + username + ":" + password + "@" +
                                         host + "/" + database + "?charset=utf8")
             self.db_session = sessionmaker(bind=self.engine)

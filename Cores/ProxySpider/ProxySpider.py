@@ -10,8 +10,6 @@ from utils.data.SaveData import SaveData
 __author__ = "lightless"
 __email__ = "root@lightless.me"
 
-reload(sys)
-sys.setdefaultencoding("utf-8")
 
 __all__ = ['ProxySpider']
 

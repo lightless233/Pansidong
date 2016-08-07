@@ -4,10 +4,10 @@
 import sys
 import datetime
 import time
-import threading
 import Queue
 
 import requests
+import prettytable
 from sqlalchemy.exc import SQLAlchemyError
 
 from utils.Data.LoggerHelp import logger
@@ -52,6 +52,10 @@ class ProxyManage(object):
         del self.session
 
     def check(self):
+        """
+        根据参数检测ip或数据库中的ip列表存活性
+        :rtype: None
+        """
         if self.kwargs.get("all", None) is not None:
             # 检查数据库中的全部ip
             self._check_ip_all()
@@ -60,7 +64,13 @@ class ProxyManage(object):
             self._check_ip_list(self.kwargs.get("ips"))
 
     def _check(self, ip, port, save_to_queue=False):
-
+        """
+        检测给定的代理IP和端口是否存活
+        :param ip: 代理IP
+        :param port: 代理端口
+        :param save_to_queue: 如果设置为True，则存储到结果队列中，否则不存储，默认为False
+        :return: success, delay 如果目标代理存活，则success为True且delay为延迟，否则为False，delay为0
+        """
         # 检查参数合法性
         if ip == "" or port == "":
             logger.error("Invalid ip or port found. Skipping...")
@@ -96,7 +106,7 @@ class ProxyManage(object):
             if raw_ips is not None and len(raw_ips):
                 ips = raw_ips.split(",")
                 for ip in ips:
-                    ip_stu = ip.split(":")
+                    ip_stu = ip.strip().split(":")
                     s, t = self._check(ip_stu[0], ip_stu[1])
                     logger.info("IP {0} Connect {1}, time: {2:.2f}s".format(ip, "success", t)) if s \
                         else logger.error("IP {0} Connect failed.".format(ip))
@@ -159,4 +169,35 @@ class ProxyManage(object):
                 logger.error("Error while update proxy information to database.")
                 logger.error(e.message)
                 sys.exit(1)
+
+    def get_alive_proxy(self, amount=0, delay=0):
+        """
+        从数据库中获取获取存活的代理
+        :param amount: 取出的数量
+        :param delay: 取出延时小于delay的代理
+        """
+        all_ips = self.session.query(Proxy)
+        all_ips = all_ips.filter(Proxy.is_alive == "1")
+        if int(delay):
+            all_ips = all_ips.filter(Proxy.times < delay)
+        all_ips = all_ips.order_by(Proxy.times)
+        if int(amount):
+            all_ips = all_ips.limit(amount)
+
+        result = all_ips.all()
+        # TODO：在Windows上要设置GBK编码，linux以及mac未测试。
+        x = prettytable.PrettyTable(encoding="GBK", field_names=["Proxy IP", "Location", "Proxy Type", "Delay (s)"],
+                                    float_format=".2")
+        for res in result:
+            x.add_row([res.ip + ":" + res.port, res.location, res.proxy_type, float(res.times)])
+        x.align = "l"
+        print x
+        print "[*] Total: {}".format(str(len(result)))
+
+    def clean_dead_proxy(self):
+        """
+        清除数据库中状态为dead的代理
+        :return:
+        """
+        pass
 

@@ -27,6 +27,8 @@ misc_group.add_argument("--version", help="Show program version.", action="store
 proxy_group.add_argument("--update-proxy-db", help="Update proxy IP Address.", action="store_true")
 proxy_group.add_argument("--check-proxy", metavar="IP:PORT", type=str, help="Check proxy availability.")
 proxy_group.add_argument("--check-proxy-all", help="Check ALL proxy availability. !!VERY SLOW!!", action="store_true")
+proxy_group.add_argument("--get-alive-proxy", help="Get all alive proxy from db. e.g. --get-alive-proxy 100, 2",
+                         type=str, metavar="[count[, delay]]")
 
 # 添加Attack组的命令
 

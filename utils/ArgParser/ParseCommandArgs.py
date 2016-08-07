@@ -51,3 +51,17 @@ class ParseCommandArgs(object):
             pm = ProxyManage.ProxyManage(all=True)
             pm.check()
             sys.exit(0)
+
+        # --get-alive-proxy
+        if self.command_args.get_alive_proxy:
+            logger.debug("Get alive proxy selected.")
+            logger.debug(self.command_args.get_alive_proxy)
+            pm = ProxyManage.ProxyManage()
+            params = self.command_args.get_alive_proxy
+            if "," in params:
+                amount = params.split(",")[0].strip()
+                delay = params.split(",")[1].strip()
+                pm.get_alive_proxy(amount, delay)
+            else:
+                pm.get_alive_proxy(params.strip())
+

@@ -195,9 +195,14 @@ class ProxyManage(object):
         print "[*] Total: {}".format(str(len(result)))
 
     def clean_dead_proxy(self):
-        """
-        清除数据库中状态为dead的代理
-        :return:
-        """
-        pass
-
+        try:
+            logger.info("Start clean dead proxy in db.")
+            dead_proxy = self.session.query(Proxy).filter(Proxy.is_alive == "0").all()
+            logger.info("Found {} dead proxy in db.".format(len(dead_proxy)))
+            for dp in dead_proxy:
+                self.session.delete(dp)
+            self.session.commit()
+            logger.info("Clean done. {} dead proxies cleaned.".format(len(dead_proxy)))
+        except SQLAlchemyError:
+            logger.fatal("Error occurred when clean dead proxy from db.")
+            sys.exit(1)

@@ -17,6 +17,7 @@ __email__ = "root@lightless.me"
 __all__ = ["ParseCommandArgs"]
 
 
+# TODO： 按照不同的分类，拆分这个类
 class ParseCommandArgs(object):
     def __init__(self):
         super(ParseCommandArgs, self).__init__()
@@ -64,4 +65,10 @@ class ParseCommandArgs(object):
                 pm.get_alive_proxy(amount, delay)
             else:
                 pm.get_alive_proxy(params.strip())
+
+        # --clean-db
+        if self.command_args.clean_db:
+            logger.debug("Clean db selected.")
+            pm = ProxyManage.ProxyManage()
+            pm.clean_dead_proxy()
 

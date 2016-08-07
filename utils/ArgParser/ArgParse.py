@@ -29,6 +29,7 @@ proxy_group.add_argument("--check-proxy", metavar="IP:PORT", type=str, help="Che
 proxy_group.add_argument("--check-proxy-all", help="Check ALL proxy availability. !!VERY SLOW!!", action="store_true")
 proxy_group.add_argument("--get-alive-proxy", help="Get all alive proxy from db. e.g. --get-alive-proxy 100, 2",
                          type=str, metavar="[count[, delay]]")
+proxy_group.add_argument("--clean-db", help="Clean the dead proxy from db.", action="store_true")
 
 # 添加Attack组的命令
 

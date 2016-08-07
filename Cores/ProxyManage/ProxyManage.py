@@ -5,6 +5,7 @@ import sys
 import datetime
 import time
 import Queue
+import platform
 
 import requests
 import prettytable
@@ -185,8 +186,10 @@ class ProxyManage(object):
             all_ips = all_ips.limit(amount)
 
         result = all_ips.all()
-        # TODO：在Windows上要设置GBK编码，linux以及mac未测试。
-        x = prettytable.PrettyTable(encoding="GBK", field_names=["Proxy IP", "Location", "Proxy Type", "Delay (s)"],
+        # TODO：在Windows上要设置GBK编码，mac未测试。
+        # Linux 上需要设置为UTF-8编码
+        encoding = "UTF-8" if "linux" in platform.system().lower() else "GBK"
+        x = prettytable.PrettyTable(encoding=encoding, field_names=["Proxy IP", "Location", "Proxy Type", "Delay (s)"],
                                     float_format=".2")
         for res in result:
             x.add_row([res.ip + ":" + res.port, res.location, res.proxy_type, float(res.times)])

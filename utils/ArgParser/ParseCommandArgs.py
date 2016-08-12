@@ -85,3 +85,7 @@ class ParseCommandArgs(object):
             time.sleep(5)
             logger.info("Task done. :)")
 
+        # --spider-attack
+        if self.command_args.spider_attack:
+            logger.debug("Spider and attack selected.")
+

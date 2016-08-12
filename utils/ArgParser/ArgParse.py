@@ -32,7 +32,8 @@ proxy_group.add_argument("--get-alive-proxy", help="Get all alive proxy from db.
 proxy_group.add_argument("--clean-db", help="Clean the dead proxy from db.", action="store_true")
 
 # 添加Attack组的命令
-
+proxy_group.add_argument("--spider-attack", help="Spider the target and send each url to attacker.",
+                         metavar="URL", type="str")
 
 # 添加spider组的命令
 proxy_group.add_argument("--spider-only", help="Spider the target, do not scan.", metavar="URL", type=str)

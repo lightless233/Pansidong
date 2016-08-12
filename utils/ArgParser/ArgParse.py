@@ -35,4 +35,4 @@ proxy_group.add_argument("--clean-db", help="Clean the dead proxy from db.", act
 
 
 # 添加spider组的命令
-
+proxy_group.add_argument("--spider-only", help="Spider the target, do not scan.", metavar="URL", type=str)

@@ -4,9 +4,11 @@
 # time: 2016/8/6 11:59
 
 import sys
+import time
 
 from Cores.ProxySpider import ProxySpider
 from Cores.ProxyManage import ProxyManage
+from Cores.WebSpider import WebSpider
 from utils.ArgParser import ArgParse
 from utils.ArgParser.Messages import Version
 from utils.Data.LoggerHelp import logger
@@ -21,7 +23,8 @@ __all__ = ["ParseCommandArgs"]
 class ParseCommandArgs(object):
     def __init__(self):
         super(ParseCommandArgs, self).__init__()
-        self.command_args = ArgParse.pansidong_parse.parse_args()
+        self.pansidong_parse = ArgParse.pansidong_parse
+        self.command_args = self.pansidong_parse.parse_args()
 
     def start_parse(self):
         # --version
@@ -71,4 +74,14 @@ class ParseCommandArgs(object):
             logger.debug("Clean db selected.")
             pm = ProxyManage.ProxyManage()
             pm.clean_dead_proxy()
+
+        # --spider-only
+        if self.command_args.spider_only:
+            logger.debug("Spider only selected.")
+            target_url = self.command_args.spider_only
+            web_spider = WebSpider.WebSpider(target=target_url, deep=1, limit_domain=[target_url], phantomjs_count=1)
+            web_spider.start()
+            logger.info("Spider finished, wait for all threads and thread pool exit.")
+            time.sleep(5)
+            logger.info("Task done. :)")
 

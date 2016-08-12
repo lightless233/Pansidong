@@ -35,7 +35,12 @@ class WebSpider(SpiderBase):
         SpiderBase.set_phantomjs_path(self)
 
         # 设置参数
-        self.target = target
+        if not target.startswith("http://") and not target.startswith("https://"):
+            self.target = "".join(["http://", target])
+            logger.warning("target url not provide protocol, use {}".format(self.target))
+        else:
+            self.target = target
+
         self.deep = deep
         if limit_domain:
             self.limit_domain = limit_domain
@@ -178,10 +183,18 @@ class WebSpider(SpiderBase):
             self.check_same_url(url, deep, self.filter_similar)
 
         # 处理打开页面时产生的请求
+        common_static_files = ["bootstrap", "jquery"]
         for log in http_log:
             url = log['request']['url']
-            logger.info(url)
-            self.check_same_url(url, deep, self.filter_similar)
+            # 去掉一些常见的CSS和JS
+            no_common_file = False
+            for common_file in common_static_files:
+                if common_file in url:
+                    no_common_file = True
+                    break
+            if not no_common_file:
+                logger.info(url)
+                self.check_same_url(url, deep, self.filter_similar)
 
         logger.debug("".join(["Raw links: ", str(self.raw_links_num)]))
         logger.debug("".join(["Filter links: ", str(self.filter_links_num)]))
